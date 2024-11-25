@@ -174,6 +174,15 @@ const runTestsOptionName = "run-tests";
 
 const actionRetryLimitName = "action-retry-limit";
 
+// Add new option for compiled graph input
+const compiledGraphOption: INamedOption<yargs.Options> = {
+  name: "compiled-graph",
+  option: {
+    describe: "Path to pre-compiled graph JSON file. If provided, compilation step will be skipped.",
+    type: "string"
+  }
+};
+
 function getCredentialsPath(projectDir: string, credentialsPath: string) {
   return actuallyResolve(projectDir, credentialsPath);
 }
@@ -440,6 +449,7 @@ export function runCli() {
         description: "Run the dataform project.",
         positionalOptions: [projectDirMustExistOption],
         options: [
+          compiledGraphOption,
           {
             name: dryRunOptionName,
             option: {
@@ -476,6 +486,7 @@ export function runCli() {
           ...ProjectConfigOptions.allYargsOptions
         ],
         processFn: async argv => {
+          let compiledGraph: dataform.ICompiledGraph;
           if (argv[jsonOutputOption.name] && !argv[dryRunOptionName]) {
             print(
               `For execution, the --${jsonOutputOption.name} option is only supported if the ` +
@@ -483,21 +494,37 @@ export function runCli() {
             );
             return;
           }
-          if (!argv[jsonOutputOption.name]) {
-            print("Compiling...\n");
+          if (argv[compiledGraphOption.name]) {
+            try {
+              const graphContent = fs.readFileSync(argv[compiledGraphOption.name], 'utf8');
+              compiledGraph = dataform.CompiledGraph.fromObject(JSON.parse(graphContent));
+              // console.log('compiledGraph loaded', compiledGraph);
+              if (!argv[jsonOutputOption.name]) {
+                printSuccess("Loaded pre-compiled graph.\n");
+              }
+            } catch (e) {
+              printError(`Failed to load compiled graph: ${e.message}`);
+              return 1;
+            }
+          } else {
+            if (!argv[jsonOutputOption.name]) {
+              print("Compiling...\n");
+            }
+            compiledGraph = await compile({
+              projectDir: argv[projectDirOption.name],
+              projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
+              timeoutMillis: argv[timeoutOption.name] || undefined
+            });
+            // console.log('compiledGraph original', compiledGraph);
+            if (compiledGraphHasErrors(compiledGraph)) {
+              printCompiledGraphErrors(compiledGraph.graphErrors);
+              return 1;
+            }
+            if (!argv[jsonOutputOption.name]) {
+              printSuccess("Compiled successfully.\n");
+            }
           }
-          const compiledGraph = await compile({
-            projectDir: argv[projectDirOption.name],
-            projectConfigOverride: ProjectConfigOptions.constructProjectConfigOverride(argv),
-            timeoutMillis: argv[timeoutOption.name] || undefined
-          });
-          if (compiledGraphHasErrors(compiledGraph)) {
-            printCompiledGraphErrors(compiledGraph.graphErrors);
-            return 1;
-          }
-          if (!argv[jsonOutputOption.name]) {
-            printSuccess("Compiled successfully.\n");
-          }
+
           const readCredentials = credentials.read(
             getCredentialsPath(argv[projectDirOption.name], argv[credentialsOption.name])
           );
