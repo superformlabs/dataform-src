@@ -292,7 +292,7 @@ export class BigQueryDbAdapter implements IDbAdapter {
           projectId,
           scopes: EXTRA_GOOGLE_SCOPES,
           location: this.bigQueryCredentials.location,
-          auth // Use auth instead of credentials
+          credentials: auth.credentials,
         })
       );
     }
