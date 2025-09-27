@@ -265,29 +265,37 @@ export class BigQueryDbAdapter implements IDbAdapter {
     }
   }
   private getClient(projectId?: string) {
+    console.log("🔍 Debug: Getting client for project:", projectId);
     projectId = projectId || this.bigQueryCredentials.projectId;
     if (!this.clients.has(projectId)) {
+      console.log("🔍 Debug: Client not found, creating new one");
       let auth;
 
       if (this.bigQueryCredentials.credentials) {
         // Try to parse as JSON (classic service account)
         const parsed = JSON.parse(this.bigQueryCredentials.credentials);
+        console.log("🔍 Debug: parsed credentials:", parsed);
+
         auth = new GoogleAuth({
           credentials: parsed,
           scopes: EXTRA_GOOGLE_SCOPES
         });
+        console.log("🔍 Debug: GoogleAuth created:", auth);
+      } else {
+        console.log("🔍 Debug: No credentials provided");
+        auth = new GoogleAuth({
+          scopes: EXTRA_GOOGLE_SCOPES
+        });
       }
-
-      this.clients.set(
+      const bigQueryConfig = {
         projectId,
-        new BigQuery({
-          projectId,
-          scopes: EXTRA_GOOGLE_SCOPES,
-          location: this.bigQueryCredentials.location,
-          // @ts-ignore
-          credentials: auth.credentials
-        })
-      );
+        scopes: EXTRA_GOOGLE_SCOPES,
+        location: this.bigQueryCredentials.location,
+        // @ts-ignore
+        credentials: auth.credentials
+      };
+
+      this.clients.set(projectId, new BigQuery(bigQueryConfig));
     }
     return this.clients.get(projectId);
   }
