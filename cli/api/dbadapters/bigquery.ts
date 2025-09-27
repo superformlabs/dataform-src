@@ -289,9 +289,17 @@ export class BigQueryDbAdapter implements IDbAdapter {
         console.log("🔍 Debug: GoogleAuth created:", auth);
       } else {
         console.log("🔍 Debug: No credentials provided");
-        auth = new GoogleAuth({
-          scopes: EXTRA_GOOGLE_SCOPES
-        });
+        if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+          console.log("🔍 Debug: Using GOOGLE_APPLICATION_CREDENTIALS from environment");
+          auth = new GoogleAuth({
+            keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+            scopes: EXTRA_GOOGLE_SCOPES
+          });
+        } else {
+          auth = new GoogleAuth({
+            scopes: EXTRA_GOOGLE_SCOPES
+          });
+        }
       }
       console.log("🔍 Debug: Auth created:", auth);
       const bigQueryConfig = {
