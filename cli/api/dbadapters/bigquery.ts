@@ -266,6 +266,12 @@ export class BigQueryDbAdapter implements IDbAdapter {
   }
   private getClient(projectId?: string) {
     console.log("🔍 Debug: Getting client for project:", projectId);
+    // Get the call stack to see which method called getClient
+    const stack = new Error().stack;
+    const caller = stack?.split("\n")[2]?.trim() || "unknown";
+    console.log("🔍 Debug: Called from:", caller);
+    console.log("🔍 Debug: Full stack trace:", stack);
+
     projectId = projectId || this.bigQueryCredentials.projectId;
     if (!this.clients.has(projectId)) {
       console.log("🔍 Debug: Client not found, creating new one");
@@ -297,7 +303,9 @@ export class BigQueryDbAdapter implements IDbAdapter {
 
       this.clients.set(projectId, new BigQuery(bigQueryConfig));
     }
-    return this.clients.get(projectId);
+    const client = this.clients.get(projectId);
+    console.log("🔍 Debug: Client created");
+    return client;
   }
 
   // private getClient(projectId?: string) {
