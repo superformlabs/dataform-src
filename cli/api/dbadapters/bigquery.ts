@@ -1,6 +1,6 @@
 import Long from "long";
 import { PromisePoolExecutor } from "promise-pool-executor";
-import { GoogleAuth } from "google-auth-library";
+
 import { BigQuery, GetTablesResponse, TableField, TableMetadata } from "@google-cloud/bigquery";
 import { collectEvaluationQueries, QueryOrAction } from "df/cli/api/dbadapters/execution_sql";
 import { IDbAdapter, IDbClient, IExecutionResult, OnCancel } from "df/cli/api/dbadapters/index";
@@ -264,88 +264,23 @@ export class BigQueryDbAdapter implements IDbAdapter {
       throw coerceAsError(e);
     }
   }
-  private getClient(projectId?: string) {
-    console.log("🔍 Debug: Getting client for project:", projectId);
-    // Check if file exists and read its content
-    const fs = require("fs");
-    try {
-      if (fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
-        console.log("🔍 Debug: Credentials file exists");
-        const fileContent = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, "utf8");
-        console.log("🔍 Debug: File content length:", fileContent.length);
-        console.log("🔍 Debug: File content preview:", fileContent.substring(0, 200));
 
-        const parsed = JSON.parse(fileContent);
-        console.log("🔍 Debug: Parsed credentials type:", parsed.type);
-        console.log("🔍 Debug: Parsed credentials keys:", Object.keys(parsed));
-      } else {
-        console.log("🔍 Debug: Credentials file does not exist!");
-      }
-    } catch (error) {
-      console.log("🔍 Debug: Error reading credentials file:", error.message);
-    }
+  private getClient(projectId?: string) {
     projectId = projectId || this.bigQueryCredentials.projectId;
     if (!this.clients.has(projectId)) {
-      console.log("🔍 Debug: Client not found, creating new one");
-      let auth;
-
-      if (this.bigQueryCredentials.credentials) {
-        // Try to parse as JSON (classic service account)
-        const parsed = JSON.parse(this.bigQueryCredentials.credentials);
-        console.log("🔍 Debug: parsed credentials:", parsed);
-
-        auth = new GoogleAuth({
-          credentials: parsed,
-          scopes: EXTRA_GOOGLE_SCOPES
-        });
-        console.log("🔍 Debug: GoogleAuth created:", auth);
-      } else {
-        console.log("🔍 Debug: No credentials provided");
-        if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-          console.log("🔍 Debug: Using GOOGLE_APPLICATION_CREDENTIALS from environment");
-          auth = new GoogleAuth({
-            keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-            scopes: EXTRA_GOOGLE_SCOPES
-          });
-        } else {
-          auth = new GoogleAuth({
-            scopes: EXTRA_GOOGLE_SCOPES
-          });
-        }
-      }
-      console.log("🔍 Debug: Auth created:", auth);
-      const bigQueryConfig = {
+      this.clients.set(
         projectId,
-        scopes: EXTRA_GOOGLE_SCOPES,
-        location: this.bigQueryCredentials.location,
-        // @ts-ignore
-        auth
-        // credentials: auth.credentials
-      };
-
-      this.clients.set(projectId, new BigQuery(bigQueryConfig));
+        new BigQuery({
+          projectId,
+          scopes: EXTRA_GOOGLE_SCOPES,
+          location: this.bigQueryCredentials.location,
+          credentials:
+            this.bigQueryCredentials.credentials && JSON.parse(this.bigQueryCredentials.credentials)
+        })
+      );
     }
-    const client = this.clients.get(projectId);
-    console.log("🔍 Debug: Client created");
-    return client;
+    return this.clients.get(projectId);
   }
-
-  // private getClient(projectId?: string) {
-  //   projectId = projectId || this.bigQueryCredentials.projectId;
-  //   if (!this.clients.has(projectId)) {
-  //     this.clients.set(
-  //       projectId,
-  //       new BigQuery({
-  //         projectId,
-  //         scopes: EXTRA_GOOGLE_SCOPES,
-  //         location: this.bigQueryCredentials.location,
-  //         credentials:
-  //           this.bigQueryCredentials.credentials && JSON.parse(this.bigQueryCredentials.credentials)
-  //       })
-  //     );
-  //   }
-  //   return this.clients.get(projectId);
-  // }
 
   private async runQuery(
     query: string,

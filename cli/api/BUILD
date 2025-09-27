@@ -40,6 +40,5 @@ ts_library(
         "@npm//protobufjs",
         "@npm//semver",
         "@npm//tmp",
-        "@npm//google-auth-library",
     ],
 )
