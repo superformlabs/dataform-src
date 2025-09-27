@@ -1,6 +1,6 @@
 import Long from "long";
 import { PromisePoolExecutor } from "promise-pool-executor";
-
+import { GoogleAuth } from "google-auth-library";
 import { BigQuery, GetTablesResponse, TableField, TableMetadata } from "@google-cloud/bigquery";
 import { collectEvaluationQueries, QueryOrAction } from "df/cli/api/dbadapters/execution_sql";
 import { IDbAdapter, IDbClient, IExecutionResult, OnCancel } from "df/cli/api/dbadapters/index";
@@ -264,23 +264,50 @@ export class BigQueryDbAdapter implements IDbAdapter {
       throw coerceAsError(e);
     }
   }
-
   private getClient(projectId?: string) {
     projectId = projectId || this.bigQueryCredentials.projectId;
     if (!this.clients.has(projectId)) {
+      let auth;
+
+      if (this.bigQueryCredentials.credentials) {
+        // Try to parse as JSON (classic service account)
+        const parsed = JSON.parse(this.bigQueryCredentials.credentials);
+        auth = new GoogleAuth({
+          credentials: parsed,
+          scopes: EXTRA_GOOGLE_SCOPES
+        });
+      }
+
       this.clients.set(
         projectId,
         new BigQuery({
           projectId,
           scopes: EXTRA_GOOGLE_SCOPES,
           location: this.bigQueryCredentials.location,
-          // credentials:
-            // this.bigQueryCredentials.credentials && JSON.parse(this.bigQueryCredentials.credentials)
+          // @ts-ignore
+          credentials: auth.credentials
         })
       );
     }
     return this.clients.get(projectId);
   }
+
+  // private getClient(projectId?: string) {
+  //   projectId = projectId || this.bigQueryCredentials.projectId;
+  //   if (!this.clients.has(projectId)) {
+  //     this.clients.set(
+  //       projectId,
+  //       new BigQuery({
+  //         projectId,
+  //         scopes: EXTRA_GOOGLE_SCOPES,
+  //         location: this.bigQueryCredentials.location,
+  //         credentials:
+  //           this.bigQueryCredentials.credentials && JSON.parse(this.bigQueryCredentials.credentials)
+  //       })
+  //     );
+  //   }
+  //   return this.clients.get(projectId);
+  // }
 
   private async runQuery(
     query: string,
