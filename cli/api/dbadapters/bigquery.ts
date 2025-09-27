@@ -266,12 +266,24 @@ export class BigQueryDbAdapter implements IDbAdapter {
   }
   private getClient(projectId?: string) {
     console.log("🔍 Debug: Getting client for project:", projectId);
-    // Get the call stack to see which method called getClient
-    // const stack = new Error().stack;
-    // const caller = stack?.split("\n")[2]?.trim() || "unknown";
-    // console.log("🔍 Debug: Called from:", caller);
-    // console.log("🔍 Debug: Full stack trace:", stack);
+    // Check if file exists and read its content
+    const fs = require("fs");
+    try {
+      if (fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+        console.log("🔍 Debug: Credentials file exists");
+        const fileContent = fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, "utf8");
+        console.log("🔍 Debug: File content length:", fileContent.length);
+        console.log("🔍 Debug: File content preview:", fileContent.substring(0, 200));
 
+        const parsed = JSON.parse(fileContent);
+        console.log("🔍 Debug: Parsed credentials type:", parsed.type);
+        console.log("🔍 Debug: Parsed credentials keys:", Object.keys(parsed));
+      } else {
+        console.log("🔍 Debug: Credentials file does not exist!");
+      }
+    } catch (error) {
+      console.log("🔍 Debug: Error reading credentials file:", error.message);
+    }
     projectId = projectId || this.bigQueryCredentials.projectId;
     if (!this.clients.has(projectId)) {
       console.log("🔍 Debug: Client not found, creating new one");
@@ -307,7 +319,8 @@ export class BigQueryDbAdapter implements IDbAdapter {
         scopes: EXTRA_GOOGLE_SCOPES,
         location: this.bigQueryCredentials.location,
         // @ts-ignore
-        credentials: auth.credentials
+        auth
+        // credentials: auth.credentials
       };
 
       this.clients.set(projectId, new BigQuery(bigQueryConfig));
